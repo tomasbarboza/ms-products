@@ -1,13 +1,14 @@
 import {
+  HttpStatus,
   Injectable,
   Logger,
-  NotFoundException,
   OnModuleInit,
 } from '@nestjs/common';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { PrismaClient } from '@prisma/client';
 import PaginationDto from 'src/common/dto/pagination.dto';
+import { RpcException } from '@nestjs/microservices';
 
 @Injectable()
 export class ProductsService extends PrismaClient implements OnModuleInit {
@@ -17,65 +18,88 @@ export class ProductsService extends PrismaClient implements OnModuleInit {
     await this.$connect();
   }
   create(createProductDto: CreateProductDto) {
-    this.logger.log(
-      `Creating a new product with the following data: ${JSON.stringify(createProductDto)}`,
-    );
-    const newProduct = this.product.create({
-      data: createProductDto,
-    });
-
-    return newProduct;
+    try {
+      const newProduct = this.product.create({
+        data: createProductDto,
+      });
+  
+      return newProduct;
+    } catch (error) {
+      throw new RpcException({
+        status: HttpStatus.BAD_REQUEST,
+        message: error.message,
+      });
+    }
+   
   }
 
   async findAll(paginationDto: PaginationDto) {
-    const { page, limit } = paginationDto;
+    try {
+      const { page, limit } = paginationDto;
 
-    const totalPages = this.product.count();
-    const lastPage = Math.ceil((await totalPages) / limit);
+      const totalPages = await this.product.count();
+      const lastPage = Math.ceil(totalPages / limit);
 
-    return {
-      data: await this.product.findMany({
-        skip: (page - 1) * limit,
-        take: limit,
-        where: {
-          available: true,
+      return {
+        data: await this.product.findMany({
+          skip: (page - 1) * limit,
+          take: limit,
+          where: {
+            available: true,
+          },
+        }),
+        meta: {
+          page,
+          limit,
+          totalPages,
+          lastPage,
         },
-      }),
-      meta: {
-        page,
-        limit,
-        totalPages,
-        lastPage,
-      },
-    };
+      };
+    } catch (error) {
+      throw new RpcException({
+        status: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error.message,
+      });
+    }
   }
 
   async findOne(id: number) {
-    const product = await this.product.findFirst({
-      where: {
-        id,
-        available: true,
-      },
-    });
+    try {
+      const product = await this.product.findFirst({
+        where: {
+          id,
+          available: true,
+        },
+      });
 
-    if (!product) {
-      throw new NotFoundException(`Product with id ${id} not found`);
+      if (!product) {
+        throw new RpcException({
+          status: HttpStatus.BAD_REQUEST,
+          message: `Product with id ${id} not found`,
+        });
+      }
+
+      return product;
+    } catch (error) {
+      throw new RpcException({
+        status: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error.message,
+      });
     }
-
-    return product;
   }
 
   async update(id: number, updateProductDto: UpdateProductDto) {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { id: __, ...data } = updateProductDto;
-
     try {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { id: __, ...data } = updateProductDto;
+
       const product = await this.product.update({
         where: {
           id,
         },
         data: data,
       });
+
       return {
         message: `Product with id ${id} has been updated`,
         data: product,
@@ -83,7 +107,10 @@ export class ProductsService extends PrismaClient implements OnModuleInit {
     } catch (error) {
       // product not found
       if (error.code === 'P2025') {
-        throw new NotFoundException(`Product with id ${id} not found`);
+        throw new RpcException({
+          status: HttpStatus.BAD_REQUEST,
+          message: `Product with id ${id} not found`,
+        });
       }
     }
   }
@@ -105,8 +132,46 @@ export class ProductsService extends PrismaClient implements OnModuleInit {
     } catch (error) {
       // product not found
       if (error.code === 'P2025') {
-        throw new NotFoundException(`Product with id ${id} not found`);
+        throw new RpcException({
+          status: HttpStatus.BAD_REQUEST,
+          message: `Product with id ${id} not found`,
+        });
+      } else {
+        throw new RpcException({
+          status: HttpStatus.INTERNAL_SERVER_ERROR,
+          message: error.message,
+        });
       }
+    }
+  }
+
+  async validateProducts(ids: number[]) {
+
+    ids = Array.from(new Set(ids));
+
+    try {
+      const products = await this.product.findMany({
+        where: {
+          id: {
+            in: ids,
+          },
+          available: true,
+        },
+      });
+
+      if (products.length !== ids.length) {
+        throw new RpcException({
+          status: HttpStatus.BAD_REQUEST,
+          message: 'Some products are not available',
+        });
+      }
+
+      return products;
+    } catch (error) {
+      throw new RpcException({
+        status: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: error.message,
+      });
     }
   }
 }
