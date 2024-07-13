@@ -30,7 +30,7 @@ options:
 
 availableSecrets:
   secretManager:
-  - versionName: projects/184206400683/secrets/products_database_url/versions/1
+  - versionName: projects/184206400683/secrets/products_database_url/versions/2
     env: 'DATABASE_URL'
   - versionName: projects/184206400683/secrets/products_database_direct_url/versions/1
     env: 'DIRECT_URL'
