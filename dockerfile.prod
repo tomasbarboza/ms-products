@@ -22,9 +22,14 @@ COPY --from=deps /usr/src/app/node_modules ./node_modules
 COPY . .
 
 ARG PRODUCTS_DB_POSTGRES_URL
+ARG PRODUCTS_DB_DIRECT_URL
 ENV DATABASE_URL=$PRODUCTS_DB_POSTGRES_URL
+ENV DIRECT_URL=$PRODUCTS_DB_DIRECT_URL
+ENV sslmode=require&pgbouncer=true&connect_timeout=10
+
 
 RUN npx prisma migrate deploy
+RUN npx prisma generate
 # # Run tests 
 # RUN yarn test
 
