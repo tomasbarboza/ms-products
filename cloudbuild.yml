@@ -10,6 +10,7 @@ steps:
         "--platform=linux/amd64",
         ".",
       ]
+    secretEnv: ['DATABASE_URL', 'DIRECT_URL']
   - name: "gcr.io/cloud-builders/docker"
     args:
       [
