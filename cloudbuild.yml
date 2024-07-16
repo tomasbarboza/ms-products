@@ -1,19 +1,10 @@
 steps:
   - name: "gcr.io/cloud-builders/docker"
+    entrypoint: 'bash'
     args:
-      [
-        "build",
-        "-t",
-        "southamerica-west1-docker.pkg.dev/tienda-microservices-429001/image-registry/products-ms",
-        "-f",
-        "dockerfile.prod",
-        "--platform=linux/amd64",
-        "--build-arg",
-        "PRODUCTS_DB_POSTGRES_URL=$$DATABASE_URL",
-        "--build-arg",
-        "PRODUCTS_DB_DIRECT_URL=$$DIRECT_URL",
-        ".",
-      ]
+    - -c
+    - |
+      docker build -t southamerica-west1-docker.pkg.dev/tienda-microservices-429001/image-registry/products-ms -f dockerfile.prod --platform=linux/amd64 --build-arg PRODUCTS_DB_POSTGRES_URL=$$DATABASE_URL --build-arg PRODUCTS_DB_DIRECT_URL=$$DIRECT_URL .
     secretEnv: 
       [
         'DATABASE_URL', 
@@ -30,7 +21,7 @@ options:
 
 availableSecrets:
   secretManager:
-  - versionName: projects/184206400683/secrets/products_database_url/versions/2
+  - versionName: projects/184206400683/secrets/products_database_url/versions/3
     env: 'DATABASE_URL'
   - versionName: projects/184206400683/secrets/products_database_direct_url/versions/1
     env: 'DIRECT_URL'
